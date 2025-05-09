@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastfood-Deployment
+spec:
+  selector: 
+    matchLabels:
+      app: fastfood
+  template:
+    metadata:
+      labels:
+        app: fastfood
+    spec:
+      containers:
+      - name: fastfood
+        image: soat-fastfood-fastfood
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8080
+        env:
+        - name: DB_URL
+          valueFrom:
+            configMapKeyRef:
+            name: fastfood-config
+            key: db_url
+        - name: PG_USER
+          valueFrom:
+            secretKeyRef:
+              name: fastfood-secret
+              key: pg_user
+        - name: PG_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fastfood-secret
+              key: pg_password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fastfood-service
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 8080
+  targetPort: 8080
+  selector:
+    app: fastfood
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fastfood-config
+data:
+  db_url: "jdbc:postgresql://db_fastfood:5432/postgres"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fastfood-secret
+type: Opaque
+data: 
+  pg_user: postgres
+  pg_password: postgres
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: fastfood-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: fastfood-deployment
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
+---
